@@ -641,22 +641,9 @@ function App() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xl font-bold text-white">Request a LLM</div>
-                <div className="mt-1 text-sm text-slate-400"> Send us a model request that we will review and add to the website. </div>
+                <div className="mt-1 text-sm text-slate-400"> Don't see your favorite LLM? </div>
+                <div className="mt-1 text-sm text-slate-400"> Send us the name of the model and we will add it to the website. </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isSubmittingRequest) {
-                    return;
-                  }
-
-                  setIsRequestModalOpen(false);
-                  setRequestMessage(null);
-                }}
-                className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-300"
-              >
-                Close
-              </button>
             </div>
 
             <div className="mt-5">
