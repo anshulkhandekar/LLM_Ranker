@@ -59,8 +59,12 @@ function App() {
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [votedModels, setVotedModels] = useState<string[]>([]);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestedLlmName, setRequestedLlmName] = useState('');
+  const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const dragStartStateRef = useRef<TierState>(createDefaultState());
   const flashTimerRef = useRef<number | null>(null);
+  const requestInputRef = useRef<HTMLInputElement | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -105,6 +109,16 @@ function App() {
       mediaQuery.removeEventListener('change', syncLayoutMode);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isRequestModalOpen) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      requestInputRef.current?.focus();
+    }, 0);
+  }, [isRequestModalOpen]);
 
   const liveBoard = useMemo(() => buildLiveBoard(allRankings), [allRankings]);
   const unrankedModels = useMemo(() => getUnrankedModels(localState), [localState]);
@@ -421,24 +435,20 @@ function App() {
   };
 
   const handleRequestLlm = async () => {
-    const requestedName = window.prompt('Which LLM should we add?');
-
-    if (!requestedName) {
-      return;
-    }
-
-    const trimmedName = requestedName.trim();
+    const trimmedName = requestedLlmName.trim();
 
     if (!trimmedName) {
+      setRequestMessage('Enter the name of an LLM first.');
       return;
     }
 
     if (!supabase || !userId) {
-      window.alert('Supabase is not configured, so requests cannot be submitted right now.');
+      setRequestMessage('Supabase is not configured, so requests cannot be submitted right now.');
       return;
     }
 
     setIsSubmittingRequest(true);
+    setRequestMessage(null);
 
     const { error } = await supabase.from('llm_requests').insert({
       requested_name: trimmedName,
@@ -448,11 +458,16 @@ function App() {
     setIsSubmittingRequest(false);
 
     if (error) {
-      window.alert(`Could not submit request: ${error.message}`);
+      setRequestMessage(`Could not submit request: ${error.message}`);
       return;
     }
 
-    window.alert(`Request submitted for "${trimmedName}".`);
+    setRequestedLlmName('');
+    setRequestMessage(`Request submitted for "${trimmedName}".`);
+    window.setTimeout(() => {
+      setIsRequestModalOpen(false);
+      setRequestMessage(null);
+    }, 1000);
   };
 
   return (
@@ -486,12 +501,12 @@ function App() {
             <button
               type="button"
               onClick={() => {
-                void handleRequestLlm();
+                setRequestMessage(null);
+                setIsRequestModalOpen(true);
               }}
-              disabled={isSubmittingRequest}
               className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08] disabled:opacity-60"
             >
-              {isSubmittingRequest ? 'Submitting...' : 'Request a LLM'}
+              Request a LLM
             </button>
           </div>
         </header>
@@ -619,6 +634,89 @@ function App() {
             )}
         </section>
       </main>
+
+      {isRequestModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#08111d] p-5 shadow-[0_30px_120px_rgba(2,8,23,0.7)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xl font-bold text-white">Request a LLM</div>
+                <div className="mt-1 text-sm text-slate-400"> Send us a model request that we will review and add to the website. </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSubmittingRequest) {
+                    return;
+                  }
+
+                  setIsRequestModalOpen(false);
+                  setRequestMessage(null);
+                }}
+                className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="llm-request-name" className="mb-2 block text-sm font-medium text-slate-200">
+                LLM name
+              </label>
+              <input
+                id="llm-request-name"
+                ref={requestInputRef}
+                value={requestedLlmName}
+                onChange={(event) => {
+                  setRequestedLlmName(event.target.value);
+                  if (requestMessage) {
+                    setRequestMessage(null);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleRequestLlm();
+                  }
+                }}
+                placeholder="Example: Qwen 3, Claude Haiku, o3"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/60 focus:bg-white/[0.06]"
+              />
+            </div>
+
+            {requestMessage ? (
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200">{requestMessage}</div>
+            ) : null}
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSubmittingRequest) {
+                    return;
+                  }
+
+                  setIsRequestModalOpen(false);
+                  setRequestMessage(null);
+                }}
+                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRequestLlm();
+                }}
+                disabled={isSubmittingRequest}
+                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmittingRequest ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
