@@ -2,7 +2,7 @@
 
 Simple, polished React app for ranking major LLMs in personal tiers and comparing that against a live average ranking from all site users.
 
-Try It Out: [https://adsc-llm-ranker.vercel.app/](LLM Ranker)
+Try It Out: [LLM Ranker](https://adsc-llm-ranker.vercel.app/)
 
 ## Stack
 
