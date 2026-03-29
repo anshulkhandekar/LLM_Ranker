@@ -22,5 +22,11 @@ export const supabase = isSupabaseConfigured
 export type PersonalRankingRow = {
   user_id: string;
   state: TierState;
+  voted_models?: string[];
   updated_at?: string;
+};
+
+export type LlmRequestInsert = {
+  requested_name: string;
+  requested_by: string;
 };

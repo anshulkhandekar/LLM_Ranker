@@ -57,6 +57,8 @@ function App() {
   const [highlightedModel, setHighlightedModel] = useState<string | null>(null);
   const [selectedMobileModelId, setSelectedMobileModelId] = useState<string | null>(null);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [votedModels, setVotedModels] = useState<string[]>([]);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const dragStartStateRef = useRef<TierState>(createDefaultState());
   const flashTimerRef = useRef<number | null>(null);
 
@@ -106,6 +108,10 @@ function App() {
 
   const liveBoard = useMemo(() => buildLiveBoard(allRankings), [allRankings]);
   const unrankedModels = useMemo(() => getUnrankedModels(localState), [localState]);
+  const totalVotes = useMemo(
+    () => allRankings.reduce((sum, ranking) => sum + (ranking.voted_models?.length ?? 0), 0),
+    [allRankings],
+  );
 
   const liveScoreLabels = useMemo(
     () =>
@@ -147,7 +153,7 @@ function App() {
     let mounted = true;
 
     const loadRankings = async () => {
-      const { data, error } = await client.from('personal_rankings').select('user_id, state, updated_at');
+      const { data, error } = await client.from('personal_rankings').select('user_id, state, voted_models, updated_at');
 
       if (!mounted) {
         return;
@@ -162,6 +168,7 @@ function App() {
       const rows = (data as PersonalRankingRow[] | null)?.map((row) => ({
         ...row,
         state: normalizeTierState(row.state),
+        voted_models: Array.isArray(row.voted_models) ? row.voted_models.filter((item): item is string => typeof item === 'string') : [],
       })) ?? [];
 
       setAllRankings(rows);
@@ -170,6 +177,7 @@ function App() {
 
       if (mine) {
         setLocalState(mine.state);
+        setVotedModels(mine.voted_models ?? []);
       }
 
       setIsReady(true);
@@ -225,15 +233,21 @@ function App() {
     };
   }, [userId]);
 
-  const persistRanking = async (nextState: TierState, previousState: TierState, modelId: string | null) => {
+  const persistRanking = async (
+    nextState: TierState,
+    previousState: TierState,
+    modelId: string | null,
+    nextVotedModels: string[],
+  ) => {
     setLocalState(nextState);
+    setVotedModels(nextVotedModels);
     setSaveError(null);
     flashRows(TIERS.filter((tier) => previousState[tier].join('|') !== nextState[tier].join('|')), modelId);
 
     const client = supabase;
 
     if (!client || !userId) {
-      setAllRankings((current) => upsertLocalRanking(current, userId || 'local-demo', nextState));
+      setAllRankings((current) => upsertLocalRanking(current, userId || 'local-demo', nextState, nextVotedModels));
       return;
     }
 
@@ -243,6 +257,7 @@ function App() {
       {
         user_id: userId,
         state: nextState,
+        voted_models: nextVotedModels,
       },
       {
         onConflict: 'user_id',
@@ -256,7 +271,27 @@ function App() {
       return;
     }
 
-    setAllRankings((current) => upsertLocalRanking(current, userId, nextState));
+    setAllRankings((current) => upsertLocalRanking(current, userId, nextState, nextVotedModels));
+  };
+
+  const trackVotesForMove = (
+    previousState: TierState,
+    nextState: TierState,
+    currentVotedModels: string[],
+  ) => {
+    const votedSet = new Set(currentVotedModels);
+
+    for (const tier of TIERS) {
+      for (const modelId of nextState[tier]) {
+        const wasPreviouslyRanked = TIERS.some((candidate) => previousState[candidate].includes(modelId));
+
+        if (!wasPreviouslyRanked) {
+          votedSet.add(modelId);
+        }
+      }
+    }
+
+    return [...votedSet];
   };
 
   const locateContainerInState = (state: TierState, id: string): TierKey | typeof UNRANKED | null => {
@@ -359,7 +394,8 @@ function App() {
       return;
     }
 
-    await persistRanking(nextState, baseState, activeItem);
+    const nextVotedModels = trackVotesForMove(baseState, nextState, votedModels);
+    await persistRanking(nextState, baseState, activeItem, nextVotedModels);
   };
 
   const handleDragCancel = () => {
@@ -379,8 +415,44 @@ function App() {
       return;
     }
 
-    await persistRanking(nextState, localState, selectedMobileModelId);
+    const nextVotedModels = trackVotesForMove(localState, nextState, votedModels);
+    await persistRanking(nextState, localState, selectedMobileModelId, nextVotedModels);
     setSelectedMobileModelId(null);
+  };
+
+  const handleRequestLlm = async () => {
+    const requestedName = window.prompt('Which LLM should we add?');
+
+    if (!requestedName) {
+      return;
+    }
+
+    const trimmedName = requestedName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    if (!supabase || !userId) {
+      window.alert('Supabase is not configured, so requests cannot be submitted right now.');
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+
+    const { error } = await supabase.from('llm_requests').insert({
+      requested_name: trimmedName,
+      requested_by: userId,
+    });
+
+    setIsSubmittingRequest(false);
+
+    if (error) {
+      window.alert(`Could not submit request: ${error.message}`);
+      return;
+    }
+
+    window.alert(`Request submitted for "${trimmedName}".`);
   };
 
   return (
@@ -395,8 +467,13 @@ function App() {
         <header className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-3xl font-black tracking-[-0.04em] text-white sm:text-5xl">Rank Your Favorite LLMs</div>
-            <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-200">
-              {connectedCount} users online
+            <div className="flex flex-wrap gap-3">
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-200">
+                {connectedCount} users online
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-200">
+                {totalVotes} total votes
+              </div>
             </div>
           </div>
           <div className="flex gap-3">
@@ -406,6 +483,16 @@ function App() {
             <TabButton active={activeTab === 'live'} onClick={() => setActiveTab('live')}>
               Live
             </TabButton>
+            <button
+              type="button"
+              onClick={() => {
+                void handleRequestLlm();
+              }}
+              disabled={isSubmittingRequest}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08] disabled:opacity-60"
+            >
+              {isSubmittingRequest ? 'Submitting...' : 'Request a LLM'}
+            </button>
           </div>
         </header>
 
@@ -565,10 +652,11 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function upsertLocalRanking(rows: RankingRow[], userId: string, state: TierState): RankingRow[] {
+function upsertLocalRanking(rows: RankingRow[], userId: string, state: TierState, votedModels: string[]): RankingRow[] {
   const nextRow: RankingRow = {
     user_id: userId,
     state,
+    voted_models: votedModels,
     updated_at: new Date().toISOString(),
   };
 

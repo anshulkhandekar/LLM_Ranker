@@ -4,6 +4,7 @@ import { emptyTierState, scoreForTier, tierForAverageScore } from './tier-state'
 export type RankingRow = {
   user_id: string;
   state: TierState;
+  voted_models?: string[];
   updated_at?: string;
 };
 
