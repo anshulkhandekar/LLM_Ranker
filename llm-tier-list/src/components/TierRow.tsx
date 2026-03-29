@@ -14,6 +14,7 @@ type TierRowProps = {
   selectedModelId?: string | null;
   onCardClick?: (modelId: string) => void;
   cardReadonly?: boolean;
+  onTierClick?: () => void;
 };
 
 export function TierRow({
@@ -26,6 +27,7 @@ export function TierRow({
   selectedModelId,
   onCardClick,
   cardReadonly,
+  onTierClick,
 }: TierRowProps) {
   const droppable = useDroppable({
     id: tier,
@@ -33,7 +35,13 @@ export function TierRow({
   });
 
   return (
-    <section className="grid overflow-hidden rounded-[30px] border border-white/10 bg-slate-950/75 shadow-[0_18px_70px_rgba(3,7,18,0.45)] lg:grid-cols-[120px_minmax(0,1fr)]">
+    <section
+      onClick={onTierClick}
+      className={clsx(
+        'grid overflow-hidden rounded-[30px] border border-white/10 bg-slate-950/75 shadow-[0_18px_70px_rgba(3,7,18,0.45)] lg:grid-cols-[120px_minmax(0,1fr)]',
+        onTierClick && 'cursor-pointer',
+      )}
+    >
       <div className={clsx('flex flex-col items-center justify-center gap-1 bg-gradient-to-br px-4 py-6 text-slate-950', TIER_COLORS[tier])}>
         <div className="text-4xl font-black tracking-[0.2em]">{tier}</div>
       </div>

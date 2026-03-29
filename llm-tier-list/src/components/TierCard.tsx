@@ -47,7 +47,10 @@ export function TierCard({
         !readonly && 'cursor-grab active:cursor-grabbing',
       )}
       type="button"
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.();
+      }}
       {...attributes}
       {...listeners}
     >

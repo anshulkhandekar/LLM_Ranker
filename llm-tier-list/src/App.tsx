@@ -527,51 +527,6 @@ function App() {
                 onDragCancel={handleDragCancel}
               >
                 <div className="space-y-4">
-                  {isMobileLayout ? (
-                    <section className="rounded-[24px] border border-white/10 bg-slate-950/70 p-4 md:hidden">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-sm text-slate-300">
-                          {selectedMobileModelId ? `Selected: ${MODEL_MAP[selectedMobileModelId]?.label ?? selectedMobileModelId}` : 'Tap a model, then tap a tier'}
-                        </div>
-                        {selectedMobileModelId ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedMobileModelId(null)}
-                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300"
-                          >
-                            Clear
-                          </button>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {TIERS.map((tier) => (
-                          <button
-                            key={tier}
-                            type="button"
-                            disabled={!selectedMobileModelId}
-                            onClick={() => {
-                              void handleMobilePlacement(tier);
-                            }}
-                            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {tier}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          disabled={!selectedMobileModelId}
-                          onClick={() => {
-                            void handleMobilePlacement(UNRANKED);
-                          }}
-                          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Bench
-                        </button>
-                      </div>
-                    </section>
-                  ) : null}
-
                   {TIERS.map((tier) => (
                     <TierRow
                       key={tier}
@@ -583,11 +538,30 @@ function App() {
                       selectedModelId={selectedMobileModelId}
                       onCardClick={isMobileLayout ? setSelectedMobileModelId : undefined}
                       cardReadonly={isMobileLayout}
+                      onTierClick={
+                        isMobileLayout && selectedMobileModelId
+                          ? () => {
+                              void handleMobilePlacement(tier);
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
 
-                <section className="mt-5 rounded-[30px] border border-dashed border-white/12 bg-slate-950/60 p-4">
+                <section
+                  onClick={
+                    isMobileLayout && selectedMobileModelId
+                      ? () => {
+                          void handleMobilePlacement(UNRANKED);
+                        }
+                      : undefined
+                  }
+                  className={clsx(
+                    'mt-5 rounded-[30px] border border-dashed border-white/12 bg-slate-950/60 p-4',
+                    isMobileLayout && selectedMobileModelId && 'cursor-pointer',
+                  )}
+                >
                   <BenchDropzone className={clsx('mt-4 rounded-[24px] border border-white/8 bg-black/20 p-3 transition', activeId && 'border-sky-300/30')}>
                     <SortableContext items={unrankedModels} strategy={rectSortingStrategy}>
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
