@@ -11,6 +11,9 @@ type TierRowProps = {
   flash?: boolean;
   highlightedModel?: string | null;
   scoreLabels?: Record<string, string>;
+  selectedModelId?: string | null;
+  onCardClick?: (modelId: string) => void;
+  cardReadonly?: boolean;
 };
 
 export function TierRow({
@@ -20,6 +23,9 @@ export function TierRow({
   flash = false,
   highlightedModel,
   scoreLabels,
+  selectedModelId,
+  onCardClick,
+  cardReadonly,
 }: TierRowProps) {
   const droppable = useDroppable({
     id: tier,
@@ -51,9 +57,11 @@ export function TierRow({
                 <TierCard
                   key={item}
                   id={item}
-                  readonly={!interactive}
+                  readonly={cardReadonly ?? !interactive}
                   highlight={highlightedModel === item}
+                  selected={selectedModelId === item}
                   scoreLabel={scoreLabels?.[item]}
+                  onClick={onCardClick ? () => onCardClick(item) : undefined}
                 />
               ))
             )}

@@ -9,9 +9,19 @@ type TierCardProps = {
   highlight?: boolean;
   readonly?: boolean;
   scoreLabel?: string;
+  selected?: boolean;
+  onClick?: () => void;
 };
 
-export function TierCard({ id, faded = false, highlight = false, readonly = false, scoreLabel }: TierCardProps) {
+export function TierCard({
+  id,
+  faded = false,
+  highlight = false,
+  readonly = false,
+  scoreLabel,
+  selected = false,
+  onClick,
+}: TierCardProps) {
   const model = MODEL_MAP[id];
 
   if (!model) {
@@ -37,10 +47,11 @@ export function TierCard({ id, faded = false, highlight = false, readonly = fals
         !readonly && 'cursor-grab active:cursor-grabbing',
       )}
       type="button"
+      onClick={onClick}
       {...attributes}
       {...listeners}
     >
-      <TierCardBody id={id} faded={faded} highlight={highlight} isDragging={isDragging} scoreLabel={scoreLabel} />
+      <TierCardBody id={id} faded={faded} highlight={highlight} selected={selected} isDragging={isDragging} scoreLabel={scoreLabel} />
     </button>
   );
 }
@@ -49,11 +60,19 @@ type TierCardBodyProps = {
   id: string;
   faded?: boolean;
   highlight?: boolean;
+  selected?: boolean;
   isDragging?: boolean;
   scoreLabel?: string;
 };
 
-export function TierCardBody({ id, faded = false, highlight = false, isDragging = false, scoreLabel }: TierCardBodyProps) {
+export function TierCardBody({
+  id,
+  faded = false,
+  highlight = false,
+  selected = false,
+  isDragging = false,
+  scoreLabel,
+}: TierCardBodyProps) {
   const model = MODEL_MAP[id];
 
   if (!model) {
@@ -67,6 +86,7 @@ export function TierCardBody({ id, faded = false, highlight = false, isDragging 
         isDragging && 'scale-[1.02] border-sky-300/70 bg-slate-950/95 shadow-2xl',
         faded && 'opacity-55',
         highlight && 'animate-pulse-glow border-amber-300/60',
+        selected && 'border-sky-300/70 bg-sky-400/10 shadow-sky-500/20',
       )}
     >
       <div className="flex items-center gap-3">

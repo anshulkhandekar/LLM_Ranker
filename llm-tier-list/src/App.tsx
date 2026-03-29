@@ -17,6 +17,7 @@ import clsx from 'clsx';
 import { TierCard, TierCardBody } from './components/TierCard';
 import { TierRow } from './components/TierRow';
 import {
+  MODEL_MAP,
   LOCAL_STORAGE_STATE_KEY,
   LOCAL_STORAGE_USER_KEY,
   TIERS,
@@ -54,6 +55,8 @@ function App() {
   const [userId, setUserId] = useState<string>('');
   const [flashTiers, setFlashTiers] = useState<TierKey[]>([]);
   const [highlightedModel, setHighlightedModel] = useState<string | null>(null);
+  const [selectedMobileModelId, setSelectedMobileModelId] = useState<string | null>(null);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
   const dragStartStateRef = useRef<TierState>(createDefaultState());
   const flashTimerRef = useRef<number | null>(null);
 
@@ -88,6 +91,18 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(LOCAL_STORAGE_STATE_KEY, JSON.stringify(localState));
   }, [localState]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px), (pointer: coarse)');
+    const syncLayoutMode = () => setIsMobileLayout(mediaQuery.matches);
+
+    syncLayoutMode();
+    mediaQuery.addEventListener('change', syncLayoutMode);
+
+    return () => {
+      mediaQuery.removeEventListener('change', syncLayoutMode);
+    };
+  }, []);
 
   const liveBoard = useMemo(() => buildLiveBoard(allRankings), [allRankings]);
   const unrankedModels = useMemo(() => getUnrankedModels(localState), [localState]);
@@ -353,6 +368,21 @@ function App() {
     setLocalState(dragStartStateRef.current);
   };
 
+  const handleMobilePlacement = async (destination: TierKey | typeof UNRANKED) => {
+    if (!selectedMobileModelId) {
+      return;
+    }
+
+    const nextState = moveModel(localState, selectedMobileModelId, destination);
+
+    if (!hasStateChanged(localState, nextState)) {
+      return;
+    }
+
+    await persistRanking(nextState, localState, selectedMobileModelId);
+    setSelectedMobileModelId(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#07111e] text-white">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -395,6 +425,51 @@ function App() {
                 onDragCancel={handleDragCancel}
               >
                 <div className="space-y-4">
+                  {isMobileLayout ? (
+                    <section className="rounded-[24px] border border-white/10 bg-slate-950/70 p-4 md:hidden">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm text-slate-300">
+                          {selectedMobileModelId ? `Selected: ${MODEL_MAP[selectedMobileModelId]?.label ?? selectedMobileModelId}` : 'Tap a model, then tap a tier'}
+                        </div>
+                        {selectedMobileModelId ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMobileModelId(null)}
+                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {TIERS.map((tier) => (
+                          <button
+                            key={tier}
+                            type="button"
+                            disabled={!selectedMobileModelId}
+                            onClick={() => {
+                              void handleMobilePlacement(tier);
+                            }}
+                            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {tier}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          disabled={!selectedMobileModelId}
+                          onClick={() => {
+                            void handleMobilePlacement(UNRANKED);
+                          }}
+                          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Bench
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
+
                   {TIERS.map((tier) => (
                     <TierRow
                       key={tier}
@@ -403,6 +478,9 @@ function App() {
                       interactive
                       flash={flashTiers.includes(tier)}
                       highlightedModel={highlightedModel}
+                      selectedModelId={selectedMobileModelId}
+                      onCardClick={isMobileLayout ? setSelectedMobileModelId : undefined}
+                      cardReadonly={isMobileLayout}
                     />
                   ))}
                 </div>
@@ -416,7 +494,16 @@ function App() {
                             Every model is placed on your board.
                           </div>
                         ) : (
-                          unrankedModels.map((item) => <TierCard key={item} id={item} highlight={highlightedModel === item} />)
+                          unrankedModels.map((item) => (
+                            <TierCard
+                              key={item}
+                              id={item}
+                              readonly={isMobileLayout}
+                              highlight={highlightedModel === item}
+                              selected={selectedMobileModelId === item}
+                              onClick={isMobileLayout ? () => setSelectedMobileModelId(item) : undefined}
+                            />
+                          ))
                         )}
                       </div>
                     </SortableContext>
