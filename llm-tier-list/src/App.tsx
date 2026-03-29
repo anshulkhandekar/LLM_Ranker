@@ -4,6 +4,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
@@ -45,6 +46,7 @@ function App() {
   const [localState, setLocalState] = useState<TierState>(createDefaultState);
   const [allRankings, setAllRankings] = useState<RankingRow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const [connectedCount, setConnectedCount] = useState(1);
   const [isReady, setIsReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -275,6 +277,16 @@ function App() {
   const handleDragStart = ({ active }: DragStartEvent) => {
     dragStartStateRef.current = localState;
     setActiveId(String(active.id));
+    const initialRect = active.rect.current.initial;
+
+    setActiveDragSize(
+      initialRect
+        ? {
+            width: initialRect.width,
+            height: initialRect.height,
+          }
+        : null,
+    );
   };
 
   const handleDragOver = ({ active, over }: DragOverEvent) => {
@@ -298,6 +310,7 @@ function App() {
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
     const activeItem = String(active.id);
     setActiveId(null);
+    setActiveDragSize(null);
 
     if (!over) {
       setLocalState(dragStartStateRef.current);
@@ -336,6 +349,7 @@ function App() {
 
   const handleDragCancel = () => {
     setActiveId(null);
+    setActiveDragSize(null);
     setLocalState(dragStartStateRef.current);
   };
 
@@ -368,7 +382,10 @@ function App() {
         <section className="mt-6 rounded-[34px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_30px_100px_rgba(2,8,23,0.55)] backdrop-blur">
           {activeTab === 'local' ? (
               <DndContext
-                collisionDetection={closestCenter}
+                collisionDetection={(args) => {
+                  const pointerCollisions = pointerWithin(args);
+                  return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
+                }}
                 sensors={sensors}
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
@@ -406,7 +423,18 @@ function App() {
                   </BenchDropzone>
                 </section>
 
-                <DragOverlay>{activeId ? <div className="w-full max-w-[320px]"><TierCardBody id={activeId} faded /></div> : null}</DragOverlay>
+                <DragOverlay>
+                  {activeId ? (
+                    <div
+                      style={{
+                        width: activeDragSize?.width,
+                        height: activeDragSize?.height,
+                      }}
+                    >
+                      <TierCardBody id={activeId} faded />
+                    </div>
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             ) : (
               <div className="space-y-4">
