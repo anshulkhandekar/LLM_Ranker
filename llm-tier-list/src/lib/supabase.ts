@@ -30,3 +30,27 @@ export type LlmRequestInsert = {
   requested_name: string;
   requested_by: string;
 };
+
+export type LlmRequestStatus =
+  | 'pending'
+  | 'queued'
+  | 'processing'
+  | 'rejected'
+  | 'failed'
+  | 'needs_human'
+  | 'ready_for_review';
+
+export type LlmRequestRow = LlmRequestInsert & {
+  id: number;
+  status: LlmRequestStatus;
+  normalized_name?: string | null;
+  model_id?: string | null;
+  maker?: string | null;
+  failure_reason?: string | null;
+  attempt_count: number;
+  github_run_id?: string | null;
+  pr_url?: string | null;
+  processed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
